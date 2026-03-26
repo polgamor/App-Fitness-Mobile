@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -17,6 +18,7 @@ class _RutinasPageState extends State<RutinasPage> {
   List<Map<String, dynamic>> _rutinas = [];
   String? _rutinaExpandidaId;
   final Map<String, TextEditingController> _observacionesControllers = {};
+  Timer? _debounceTimer;
 
   final Color primaryDark = const Color(0xFF344E41);
   final Color primaryMedium = const Color(0xFF3A5A40);
@@ -35,6 +37,7 @@ class _RutinasPageState extends State<RutinasPage> {
 
   @override
   void dispose() {
+    _debounceTimer?.cancel();
     _observacionesControllers.forEach((key, controller) => controller.dispose());
     super.dispose();
   }
@@ -81,11 +84,13 @@ class _RutinasPageState extends State<RutinasPage> {
         rutinas.add(data);
       }
 
+      if (!mounted) return;
       setState(() {
         _rutinas = rutinas;
         _isLoading = false;
       });
     } catch (e) {
+      if (!mounted) return;
       setState(() {
         _isLoading = false;
         _errorMessage = 'Error al cargar rutinas: $e';
@@ -518,13 +523,16 @@ class _RutinasPageState extends State<RutinasPage> {
               ),
               maxLines: 2,
               onChanged: (value) {
-                _actualizarEjercicio(
-                  rutinaId,
-                  diaId,
-                  ejercicioId,
-                  ejercicioData['completado'] ?? false,
-                  value,
-                );
+                _debounceTimer?.cancel();
+                _debounceTimer = Timer(const Duration(milliseconds: 700), () {
+                  _actualizarEjercicio(
+                    rutinaId,
+                    diaId,
+                    ejercicioId,
+                    ejercicioData['completado'] ?? false,
+                    value,
+                  );
+                });
               },
             ),
           ],

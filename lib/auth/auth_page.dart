@@ -396,7 +396,9 @@ class _AuthPageState extends State<AuthPage> {
         if (value == null || value.isEmpty) {
           return 'Este campo es obligatorio';
         }
-        if (label == 'Correo electrónico' && (!value.contains('@') || !value.contains('.'))) {
+        if (label == 'Correo electrónico' &&
+            !RegExp(r'^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$')
+                .hasMatch(value)) {
           return 'Ingresa un email válido';
         }
         if (label == 'Contraseña' && value.length < 8) {

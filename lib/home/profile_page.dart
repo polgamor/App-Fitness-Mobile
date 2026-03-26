@@ -4,7 +4,6 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/services.dart';
-import 'dart:io';
 import '../auth/asociar_entrenador_dialog.dart';
 import '../database/image_picker_service.dart';
 
@@ -20,7 +19,6 @@ class _ProfilePageState extends State<ProfilePage> {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final ImagePickerService _imagePickerService = ImagePickerService(); 
   
-  File? _profileImage;
   bool _isEditing = false;
   bool _isLoading = true;
   bool _activo = true;
@@ -185,7 +183,6 @@ class _ProfilePageState extends State<ProfilePage> {
         _isEditing = false;
         _isLoading = false;
         _currentProfileImageUrl = imageUrl;
-        _profileImage = null;
         _profileImageBytes = null;
       });
 
@@ -479,8 +476,6 @@ class _ProfilePageState extends State<ProfilePage> {
     
     if (_profileImageBytes != null) {
       imageProvider = MemoryImage(_profileImageBytes!);
-    } else if (_profileImage != null) {
-      imageProvider = FileImage(_profileImage!);
     } else if (_currentProfileImageUrl != null && _currentProfileImageUrl!.isNotEmpty) {
       imageProvider = NetworkImage(_currentProfileImageUrl!);
     }

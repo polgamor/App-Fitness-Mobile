@@ -153,6 +153,7 @@ class _NotesPageState extends State<NotesPage> {
   }
 
   void _mostrarSnackBar(String mensaje) {
+    if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(mensaje),

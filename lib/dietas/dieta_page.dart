@@ -74,11 +74,13 @@ class _DietasPageState extends State<DietasPage> {
         dietas.add(data);
       }
 
+      if (!mounted) return;
       setState(() {
         _dietas = dietas;
         _isLoading = false;
       });
     } catch (e) {
+      if (!mounted) return;
       setState(() {
         _isLoading = false;
         _errorMessage = 'Error al cargar dietas: $e';
