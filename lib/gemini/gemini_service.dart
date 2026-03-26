@@ -25,6 +25,7 @@ class GeminiService {
     'salud física',
     'ejercicio',
     'deportes'
+    
   ];
 
   static const List<String> _blockedTopics = [
