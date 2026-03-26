@@ -7,7 +7,7 @@ class GeminiService {
   static String get _apiKey {
     final key = dotenv.env['GEMINI_API_KEY'];
     if (key == null || key.isEmpty) {
-      throw Exception('API key no configurada. Verifica tu archivo .env');
+      throw Exception('API key not configured. Check your .env file');
     }
     return key;
   }
@@ -16,21 +16,21 @@ class GeminiService {
       'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent';
 
   static const String _systemInstruction =
-      'Eres un asistente especializado exclusivamente en fitness, nutrición deportiva, '
-      'entrenamiento físico y salud física. Únicamente responde preguntas relacionadas con '
-      'estos temas. Si el usuario pregunta sobre algo fuera de este ámbito, indícale '
-      'amablemente que solo puedes ayudarle con fitness y nutrición deportiva. '
-      'No proporciones consejos médicos, diagnósticos ni recomendaciones sobre enfermedades. '
-      'No hagas mención de esteroides ni sustancias prohibidas.';
+      'You are an assistant specialized exclusively in fitness, sports nutrition, '
+      'physical training, and physical health. Only respond to questions related to '
+      'these topics. If the user asks about anything outside this scope, kindly let '
+      'them know that your specialty is fitness and sports nutrition. '
+      'Do not provide medical advice, diagnoses, or recommendations about diseases. '
+      'Do not mention steroids or any prohibited substances.';
 
   static const List<String> _blockedTopics = [
-    'medicina',
-    'tratamiento médico',
-    'enfermedades',
-    'consejo médico',
-    'diagnóstico',
-    'esteroides',
-    'consejo medico real',
+    'medical advice',
+    'medical treatment',
+    'disease',
+    'diagnosis',
+    'steroids',
+    'prescription drugs',
+    'medication',
   ];
 
   Future<String> generateContent(String prompt) async {
@@ -70,9 +70,9 @@ class GeminiService {
         throw Exception('Error en la API: ${response.statusCode}');
       }
     } on TimeoutException {
-      throw Exception('La solicitud tardó demasiado. Inténtalo de nuevo.');
+      throw Exception('Request timed out. Please try again.');
     } catch (e) {
-      throw Exception('Error al conectar con Gemini: $e');
+      throw Exception('Error connecting to Gemini: $e');
     }
   }
 
@@ -80,7 +80,7 @@ class GeminiService {
     final lowerPrompt = prompt.toLowerCase();
     for (final topic in _blockedTopics) {
       if (lowerPrompt.contains(topic.toLowerCase())) {
-        return 'Soy un asistente especializado en fitness. No puedo responder sobre $topic.';
+        return 'I am a fitness specialist assistant. I cannot respond about $topic.';
       }
     }
     return null;

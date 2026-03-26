@@ -2,26 +2,26 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
-class AsociarEntrenadorDialog extends StatefulWidget {
-  const AsociarEntrenadorDialog({super.key});
+class LinkTrainerDialog extends StatefulWidget {
+  const LinkTrainerDialog({super.key});
 
   @override
-  State<AsociarEntrenadorDialog> createState() => _AsociarEntrenadorDialogState();
+  State<LinkTrainerDialog> createState() => _LinkTrainerDialogState();
 }
 
-class _AsociarEntrenadorDialogState extends State<AsociarEntrenadorDialog> {
+class _LinkTrainerDialogState extends State<LinkTrainerDialog> {
   final TextEditingController _tokenController = TextEditingController();
   bool _isLoading = false;
 
-  Future<void> _asociarEntrenadorConToken() async {
+  Future<void> _linkTrainerWithToken() async {
     setState(() => _isLoading = true);
 
     try {
       final user = FirebaseAuth.instance.currentUser;
-      if (user == null) throw 'Debes iniciar sesión primero';
+      if (user == null) throw 'You must be logged in first';
 
       final token = _tokenController.text.trim();
-      if (token.isEmpty) throw 'Ingresa el token del entrenador';
+      if (token.isEmpty) throw 'Enter the trainer token';
 
       final tokenDoc = await FirebaseFirestore.instance
           .collection('tokens')
@@ -29,7 +29,7 @@ class _AsociarEntrenadorDialogState extends State<AsociarEntrenadorDialog> {
           .get();
 
       if (!tokenDoc.exists) {
-        throw 'El token no es válido o ya fue usado';
+        throw 'Token is invalid or has already been used';
       }
 
       final data = tokenDoc.data()!;
@@ -37,7 +37,7 @@ class _AsociarEntrenadorDialogState extends State<AsociarEntrenadorDialog> {
       final expiresAt = (data['expiresAt'] as Timestamp).toDate();
 
       if (DateTime.now().isAfter(expiresAt)) {
-        throw 'El token ha expirado';
+        throw 'Token has expired';
       }
 
       await FirebaseFirestore.instance
@@ -55,10 +55,9 @@ class _AsociarEntrenadorDialogState extends State<AsociarEntrenadorDialog> {
 
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Asociación exitosa')),
+        const SnackBar(content: Text('Trainer linked successfully')),
       );
       Navigator.pop(context, true);
-
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -78,18 +77,18 @@ class _AsociarEntrenadorDialogState extends State<AsociarEntrenadorDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: const Text('Asociar con Entrenador'),
+      title: const Text('Link with Trainer'),
       content: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Text('Ingresa el token del entrenador:'),
+          const Text('Enter the trainer token:'),
           const SizedBox(height: 16),
           TextField(
             controller: _tokenController,
             decoration: const InputDecoration(
               border: OutlineInputBorder(),
               labelText: 'Token',
-              hintText: 'Ej: 7gk3m2a9',
+              hintText: 'e.g. 7gk3m2a9',
             ),
           ),
           if (_isLoading) ...[
@@ -101,11 +100,11 @@ class _AsociarEntrenadorDialogState extends State<AsociarEntrenadorDialog> {
       actions: [
         TextButton(
           onPressed: _isLoading ? null : () => Navigator.pop(context),
-          child: const Text('Cancelar'),
+          child: const Text('Cancel'),
         ),
         ElevatedButton(
-          onPressed: _isLoading ? null : _asociarEntrenadorConToken,
-          child: const Text('Asociar'),
+          onPressed: _isLoading ? null : _linkTrainerWithToken,
+          child: const Text('Link'),
         ),
       ],
     );

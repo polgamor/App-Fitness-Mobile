@@ -13,7 +13,6 @@ class _ChatScreenState extends State<ChatScreen> {
   final GeminiService _geminiService = GeminiService();
   final List<ChatMessage> _messages = [];
 
-  // Paleta de colores
   final Color primaryDark = const Color(0xFF344E41);
   final Color primaryMedium = const Color(0xFF3A5A40);
   final Color primaryLight = const Color(0xFF588157);
@@ -34,16 +33,12 @@ class _ChatScreenState extends State<ChatScreen> {
 
     try {
       final response = await _geminiService.generateContent(text);
-      
       setState(() {
         _messages.add(ChatMessage(text: response, isUser: false));
       });
     } catch (e) {
       setState(() {
-        _messages.add(ChatMessage(
-          text: 'Error: $e',
-          isUser: false,
-        ));
+        _messages.add(ChatMessage(text: 'Error: $e', isUser: false));
       });
     }
   }
@@ -86,7 +81,7 @@ class _ChatScreenState extends State<ChatScreen> {
                     controller: _controller,
                     style: TextStyle(color: textColor),
                     decoration: InputDecoration(
-                      hintText: 'Escribe tu mensaje...',
+                      hintText: 'Type your message...',
                       hintStyle: TextStyle(color: textColor.withOpacity(0.5)),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
@@ -98,7 +93,8 @@ class _ChatScreenState extends State<ChatScreen> {
                       ),
                       filled: true,
                       fillColor: background,
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+                      contentPadding:
+                          const EdgeInsets.symmetric(horizontal: 16),
                     ),
                     onSubmitted: (_) => _sendMessage(),
                   ),
@@ -137,14 +133,14 @@ class ChatBubble extends StatelessWidget {
         margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: isUser ? const Color(0xFFD65A31) : const Color(0xFF3A5A40),
+          color: isUser
+              ? const Color(0xFFD65A31)
+              : const Color(0xFF3A5A40),
           borderRadius: BorderRadius.circular(12),
         ),
         child: Text(
           text,
-          style: TextStyle(
-            color: Colors.white,
-          ),
+          style: const TextStyle(color: Colors.white),
         ),
       ),
     );

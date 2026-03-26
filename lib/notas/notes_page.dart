@@ -14,15 +14,13 @@ class _NotesPageState extends State<NotesPage> {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   bool _isLoading = true;
   String? _errorMessage;
-  List<Map<String, dynamic>> _notas = [];
+  List<Map<String, dynamic>> _notes = [];
 
-  // Controladores para el formulario
-  final TextEditingController _ejercicioController = TextEditingController();
-  final TextEditingController _pesoController = TextEditingController();
-  final TextEditingController _repeticionesController = TextEditingController();
-  final TextEditingController _notasController = TextEditingController();
+  final TextEditingController _exerciseController = TextEditingController();
+  final TextEditingController _weightController = TextEditingController();
+  final TextEditingController _repsController = TextEditingController();
+  final TextEditingController _notesInputController = TextEditingController();
 
-  // Paleta de colores (misma que dietas_page.dart)
   final Color primaryDark = const Color(0xFF344E41);
   final Color primaryMedium = const Color(0xFF3A5A40);
   final Color primaryLight = const Color(0xFF588157);
@@ -35,19 +33,19 @@ class _NotesPageState extends State<NotesPage> {
   @override
   void initState() {
     super.initState();
-    _cargarNotas();
+    _loadNotes();
   }
 
   @override
   void dispose() {
-    _ejercicioController.dispose();
-    _pesoController.dispose();
-    _repeticionesController.dispose();
-    _notasController.dispose();
+    _exerciseController.dispose();
+    _weightController.dispose();
+    _repsController.dispose();
+    _notesInputController.dispose();
     super.dispose();
   }
 
-  Future<void> _cargarNotas() async {
+  Future<void> _loadNotes() async {
     try {
       setState(() {
         _isLoading = true;
@@ -58,156 +56,146 @@ class _NotesPageState extends State<NotesPage> {
       if (userId == null) {
         setState(() {
           _isLoading = false;
-          _errorMessage = 'No hay usuario conectado';
+          _errorMessage = 'No user logged in';
         });
         return;
       }
 
-      // Modificamos la consulta para evitar el error de índice
-      final notasSnapshot = await _firestore
+      final snapshot = await _firestore
           .collection('notas')
           .where('usuario_ID', isEqualTo: userId)
           .get();
-          
-      // Ordenamos los resultados manualmente en lugar de en la consulta
-      final List<QueryDocumentSnapshot<Map<String, dynamic>>> docs = notasSnapshot.docs;
+
+      final List<QueryDocumentSnapshot<Map<String, dynamic>>> docs =
+          snapshot.docs;
       docs.sort((a, b) {
-        final fechaA = a.data()['fecha'] as Timestamp?;
-        final fechaB = b.data()['fecha'] as Timestamp?;
-        if (fechaA == null || fechaB == null) return 0;
-        return fechaB.compareTo(fechaA);
+        final dateA = a.data()['fecha'] as Timestamp?;
+        final dateB = b.data()['fecha'] as Timestamp?;
+        if (dateA == null || dateB == null) return 0;
+        return dateB.compareTo(dateA);
       });
 
-      final List<Map<String, dynamic>> notas = [];
-
+      final List<Map<String, dynamic>> notes = [];
       for (var doc in docs) {
         final data = doc.data();
         data['id'] = doc.id;
-        notas.add(data);
+        notes.add(data);
       }
 
       setState(() {
-        _notas = notas;
+        _notes = notes;
         _isLoading = false;
       });
     } catch (e) {
       setState(() {
         _isLoading = false;
-        _errorMessage = 'Error al cargar notas: $e';
+        _errorMessage = 'Error loading notes: $e';
       });
     }
   }
 
-  Future<void> _crearNota() async {
+  Future<void> _createNote() async {
     try {
-      if (_ejercicioController.text.trim().isEmpty) {
-        _mostrarSnackBar('El nombre del ejercicio es obligatorio');
+      if (_exerciseController.text.trim().isEmpty) {
+        _showSnackBar('Exercise name is required');
         return;
       }
 
-      double? peso = double.tryParse(_pesoController.text);
-      if (_pesoController.text.isNotEmpty && peso == null) {
-        _mostrarSnackBar('El peso debe ser un número válido');
+      final double? weight = double.tryParse(_weightController.text);
+      if (_weightController.text.isNotEmpty && weight == null) {
+        _showSnackBar('Weight must be a valid number');
         return;
       }
 
-      int? repeticiones = int.tryParse(_repeticionesController.text);
-      if (_repeticionesController.text.isNotEmpty && repeticiones == null) {
-        _mostrarSnackBar('Las repeticiones deben ser un número entero');
+      final int? reps = int.tryParse(_repsController.text);
+      if (_repsController.text.isNotEmpty && reps == null) {
+        _showSnackBar('Repetitions must be a whole number');
         return;
       }
 
       final userId = _auth.currentUser?.uid;
       if (userId == null) {
-        _mostrarSnackBar('No hay usuario conectado');
+        _showSnackBar('No user logged in');
         return;
       }
 
       await _firestore.collection('notas').add({
         'usuario_ID': userId,
-        'ejercicio': _ejercicioController.text.trim(),
-        'peso': peso ?? 0,
-        'repeticiones': repeticiones ?? 0,
-        'notas': _notasController.text.trim(),
+        'ejercicio': _exerciseController.text.trim(),
+        'peso': weight ?? 0,
+        'repeticiones': reps ?? 0,
+        'notas': _notesInputController.text.trim(),
         'fecha': Timestamp.now(),
       });
 
-      _limpiarFormulario();
-
-      await _cargarNotas();
-
-      _mostrarSnackBar('Nota creada correctamente');
+      _clearForm();
+      await _loadNotes();
+      _showSnackBar('Note created successfully');
     } catch (e) {
-      _mostrarSnackBar('Error al crear la nota: $e');
+      _showSnackBar('Error creating note: $e');
     }
   }
 
-  Future<void> _eliminarNota(String notaId) async {
+  Future<void> _deleteNote(String noteId) async {
     try {
-      await _firestore.collection('notas').doc(notaId).delete();
-      await _cargarNotas();
-      _mostrarSnackBar('Nota eliminada correctamente');
+      await _firestore.collection('notas').doc(noteId).delete();
+      await _loadNotes();
+      _showSnackBar('Note deleted successfully');
     } catch (e) {
-      _mostrarSnackBar('Error al eliminar la nota: $e');
+      _showSnackBar('Error deleting note: $e');
     }
   }
 
-  void _mostrarSnackBar(String mensaje) {
+  void _showSnackBar(String message) {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(mensaje),
+        content: Text(message),
         backgroundColor: primaryDark,
         duration: const Duration(seconds: 2),
       ),
     );
   }
 
-  void _limpiarFormulario() {
-    _ejercicioController.clear();
-    _pesoController.clear();
-    _repeticionesController.clear();
-    _notasController.clear();
+  void _clearForm() {
+    _exerciseController.clear();
+    _weightController.clear();
+    _repsController.clear();
+    _notesInputController.clear();
   }
 
-  void _mostrarDialogoConfirmacion(String notaId) {
+  void _showDeleteConfirmation(String noteId) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: cardColor,
-        title: Text(
-          '¿Eliminar nota?',
-          style: TextStyle(color: textColor),
-        ),
+        title: Text('Delete note?', style: TextStyle(color: textColor)),
         content: Text(
-          '¿Estás seguro de que deseas eliminar esta nota? Esta acción no se puede deshacer.',
+          'Are you sure you want to delete this note? This action cannot be undone.',
           style: TextStyle(color: textColor.withOpacity(0.8)),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: Text(
-              'Cancelar',
-              style: TextStyle(color: textColor),
-            ),
+            child: Text('Cancel', style: TextStyle(color: textColor)),
           ),
           ElevatedButton(
             onPressed: () {
               Navigator.pop(context);
-              _eliminarNota(notaId);
+              _deleteNote(noteId);
             },
             style: ElevatedButton.styleFrom(
               backgroundColor: accent1,
               foregroundColor: Colors.black,
             ),
-            child: const Text('Eliminar'),
+            child: const Text('Delete'),
           ),
         ],
       ),
     );
   }
 
-  void _mostrarFormularioCrearNota() {
+  void _showCreateNoteForm() {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -231,7 +219,7 @@ class _NotesPageState extends State<NotesPage> {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
-                    'Nueva nota de ejercicio',
+                    'New exercise note',
                     style: TextStyle(
                       fontSize: 20,
                       fontWeight: FontWeight.bold,
@@ -247,10 +235,10 @@ class _NotesPageState extends State<NotesPage> {
               Divider(color: primaryLight),
               const SizedBox(height: 16),
               TextField(
-                controller: _ejercicioController,
+                controller: _exerciseController,
                 style: TextStyle(color: textColor),
                 decoration: InputDecoration(
-                  labelText: 'Ejercicio *',
+                  labelText: 'Exercise *',
                   labelStyle: TextStyle(color: textColor.withOpacity(0.7)),
                   enabledBorder: OutlineInputBorder(
                     borderSide: BorderSide(color: primaryLight),
@@ -267,11 +255,11 @@ class _NotesPageState extends State<NotesPage> {
                 children: [
                   Expanded(
                     child: TextField(
-                      controller: _pesoController,
+                      controller: _weightController,
                       style: TextStyle(color: textColor),
-                      keyboardType: TextInputType.numberWithOptions(decimal: true),
+                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
                       decoration: InputDecoration(
-                        labelText: 'Peso (kg)',
+                        labelText: 'Weight (kg)',
                         labelStyle: TextStyle(color: textColor.withOpacity(0.7)),
                         enabledBorder: OutlineInputBorder(
                           borderSide: BorderSide(color: primaryLight),
@@ -287,11 +275,11 @@ class _NotesPageState extends State<NotesPage> {
                   const SizedBox(width: 12),
                   Expanded(
                     child: TextField(
-                      controller: _repeticionesController,
+                      controller: _repsController,
                       style: TextStyle(color: textColor),
                       keyboardType: TextInputType.number,
                       decoration: InputDecoration(
-                        labelText: 'Repeticiones',
+                        labelText: 'Repetitions',
                         labelStyle: TextStyle(color: textColor.withOpacity(0.7)),
                         enabledBorder: OutlineInputBorder(
                           borderSide: BorderSide(color: primaryLight),
@@ -308,11 +296,11 @@ class _NotesPageState extends State<NotesPage> {
               ),
               const SizedBox(height: 16),
               TextField(
-                controller: _notasController,
+                controller: _notesInputController,
                 style: TextStyle(color: textColor),
                 maxLines: 3,
                 decoration: InputDecoration(
-                  labelText: 'Notas adicionales',
+                  labelText: 'Additional notes',
                   labelStyle: TextStyle(color: textColor.withOpacity(0.7)),
                   enabledBorder: OutlineInputBorder(
                     borderSide: BorderSide(color: primaryLight),
@@ -330,7 +318,7 @@ class _NotesPageState extends State<NotesPage> {
                 child: ElevatedButton(
                   onPressed: () {
                     Navigator.pop(context);
-                    _crearNota();
+                    _createNote();
                   },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: accent1,
@@ -341,7 +329,7 @@ class _NotesPageState extends State<NotesPage> {
                     ),
                   ),
                   child: const Text(
-                    'Guardar Nota',
+                    'Save Note',
                     style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                   ),
                 ),
@@ -359,14 +347,14 @@ class _NotesPageState extends State<NotesPage> {
     return Scaffold(
       backgroundColor: background,
       appBar: AppBar(
-        backgroundColor: Colors.transparent, 
+        backgroundColor: Colors.transparent,
         elevation: 0,
         iconTheme: IconThemeData(color: textColor),
         actions: [
           IconButton(
             icon: Icon(Icons.add, color: textColor),
-            onPressed: _mostrarFormularioCrearNota,
-            tooltip: 'Agregar nota',
+            onPressed: _showCreateNoteForm,
+            tooltip: 'Add note',
           ),
         ],
       ),
@@ -393,23 +381,23 @@ class _NotesPageState extends State<NotesPage> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Text(_errorMessage!, 
-              style: TextStyle(color: accent1, fontSize: 16)),
+            Text(_errorMessage!,
+                style: TextStyle(color: accent1, fontSize: 16)),
             const SizedBox(height: 16),
             ElevatedButton(
-              onPressed: _cargarNotas,
+              onPressed: _loadNotes,
               style: ElevatedButton.styleFrom(
                 backgroundColor: accent1,
                 foregroundColor: Colors.black,
               ),
-              child: const Text('Reintentar'),
+              child: const Text('Retry'),
             ),
           ],
         ),
       );
     }
 
-    if (_notas.isEmpty) {
+    if (_notes.isEmpty) {
       return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -417,24 +405,25 @@ class _NotesPageState extends State<NotesPage> {
             Icon(Icons.note_alt_outlined, size: 64, color: primaryLight),
             const SizedBox(height: 16),
             Text(
-              'No tienes notas guardadas',
+              'No notes saved',
               style: TextStyle(fontSize: 18, color: textColor),
             ),
             const SizedBox(height: 8),
             Text(
-              'Pulsa el botón + para crear una nueva nota',
+              'Tap the + button to create a new note',
               style: TextStyle(color: textColor.withOpacity(0.7)),
             ),
             const SizedBox(height: 24),
             ElevatedButton.icon(
-              onPressed: _mostrarFormularioCrearNota,
+              onPressed: _showCreateNoteForm,
               style: ElevatedButton.styleFrom(
                 backgroundColor: accent1,
                 foregroundColor: Colors.black,
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
               ),
               icon: const Icon(Icons.add),
-              label: const Text('Crear nota'),
+              label: const Text('Create note'),
             ),
           ],
         ),
@@ -442,15 +431,14 @@ class _NotesPageState extends State<NotesPage> {
     }
 
     return RefreshIndicator(
-      onRefresh: _cargarNotas,
+      onRefresh: _loadNotes,
       backgroundColor: accent1,
       color: Colors.black,
       child: ListView.builder(
         padding: const EdgeInsets.all(16),
-        itemCount: _notas.length,
+        itemCount: _notes.length,
         itemBuilder: (context, index) {
-          final nota = _notas[index];
-          
+          final note = _notes[index];
           return Card(
             color: cardColor,
             margin: const EdgeInsets.only(bottom: 12),
@@ -468,7 +456,7 @@ class _NotesPageState extends State<NotesPage> {
                     children: [
                       Expanded(
                         child: Text(
-                          nota['ejercicio'] ?? 'Sin nombre',
+                          note['ejercicio'] ?? 'No name',
                           style: TextStyle(
                             fontSize: 18,
                             fontWeight: FontWeight.bold,
@@ -479,8 +467,8 @@ class _NotesPageState extends State<NotesPage> {
                       ),
                       IconButton(
                         icon: Icon(Icons.delete_outline, color: accent1),
-                        onPressed: () => _mostrarDialogoConfirmacion(nota['id']),
-                        tooltip: 'Eliminar nota',
+                        onPressed: () => _showDeleteConfirmation(note['id']),
+                        tooltip: 'Delete note',
                       ),
                     ],
                   ),
@@ -490,18 +478,21 @@ class _NotesPageState extends State<NotesPage> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      _buildDetalleItem(Icons.fitness_center, '${nota['peso']} kg'),
-                      _buildDetalleItem(Icons.repeat, '${nota['repeticiones']} reps'),
-                      _buildDetalleItem(
-                        Icons.calendar_today, 
-                        _formatFecha(nota['fecha']),
+                      _buildDetailItem(
+                          Icons.fitness_center, '${note['peso']} kg'),
+                      _buildDetailItem(
+                          Icons.repeat, '${note['repeticiones']} reps'),
+                      _buildDetailItem(
+                        Icons.calendar_today,
+                        _formatDate(note['fecha']),
                       ),
                     ],
                   ),
-                  if (nota['notas'] != null && nota['notas'].toString().isNotEmpty) ...[
+                  if (note['notas'] != null &&
+                      note['notas'].toString().isNotEmpty) ...[
                     const SizedBox(height: 16),
                     Text(
-                      'Notas:',
+                      'Notes:',
                       style: TextStyle(
                         fontSize: 15,
                         fontWeight: FontWeight.w500,
@@ -510,7 +501,7 @@ class _NotesPageState extends State<NotesPage> {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      nota['notas'],
+                      note['notas'],
                       style: TextStyle(
                         fontSize: 14,
                         color: textColor.withOpacity(0.7),
@@ -527,13 +518,13 @@ class _NotesPageState extends State<NotesPage> {
     );
   }
 
-  Widget _buildDetalleItem(IconData icon, String texto) {
+  Widget _buildDetailItem(IconData icon, String text) {
     return Row(
       children: [
         Icon(icon, size: 16, color: primaryLight),
         const SizedBox(width: 6),
         Text(
-          texto,
+          text,
           style: TextStyle(
             fontSize: 14,
             color: textColor.withOpacity(0.8),
@@ -544,8 +535,8 @@ class _NotesPageState extends State<NotesPage> {
     );
   }
 
-  String _formatFecha(Timestamp timestamp) {
-    final fecha = timestamp.toDate();
-    return '${fecha.day}/${fecha.month}/${fecha.year}';
+  String _formatDate(Timestamp timestamp) {
+    final date = timestamp.toDate();
+    return '${date.day}/${date.month}/${date.year}';
   }
 }

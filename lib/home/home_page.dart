@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'profile_page.dart'; 
+import 'profile_page.dart';
 import '../rutinas/rutinas_page.dart';
 import '../dietas/dieta_page.dart';
 import '../notas/notes_page.dart';
@@ -15,7 +15,6 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage> {
   int _currentIndex = 0;
 
-  // Paleta de colores
   final Map<String, Color> colors = {
     'primaryDark': const Color(0xFF344E41),
     'primaryMedium': const Color(0xFF3A5A40),
@@ -76,15 +75,15 @@ class _HomePageState extends State<HomePage> {
         items: const [
           BottomNavigationBarItem(
             icon: Icon(Icons.restaurant_menu, size: 26),
-            label: 'Dietas',
+            label: 'Diet',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.notes_outlined, size: 26),
-            label: 'Notas',
+            label: 'Notes',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.fitness_center, size: 26),
-            label: 'Rutinas',
+            label: 'Workouts',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.chat_bubble_outline, size: 26),
@@ -92,7 +91,7 @@ class _HomePageState extends State<HomePage> {
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.person_outline, size: 26),
-            label: 'Perfil',
+            label: 'Profile',
           ),
         ],
       ),

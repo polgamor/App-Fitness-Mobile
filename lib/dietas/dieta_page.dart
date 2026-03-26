@@ -14,8 +14,8 @@ class _DietasPageState extends State<DietasPage> {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   bool _isLoading = true;
   String? _errorMessage;
-  List<Map<String, dynamic>> _dietas = [];
-  String? _dietaExpandidaId;
+  List<Map<String, dynamic>> _diets = [];
+  String? _expandedDietId;
 
   final Color primaryDark = const Color(0xFF344E41);
   final Color primaryMedium = const Color(0xFF3A5A40);
@@ -29,10 +29,10 @@ class _DietasPageState extends State<DietasPage> {
   @override
   void initState() {
     super.initState();
-    _cargarDietas();
+    _loadDiets();
   }
 
-  Future<void> _cargarDietas() async {
+  Future<void> _loadDiets() async {
     try {
       setState(() {
         _isLoading = true;
@@ -43,47 +43,48 @@ class _DietasPageState extends State<DietasPage> {
       if (userId == null) {
         setState(() {
           _isLoading = false;
-          _errorMessage = 'No hay usuario conectado';
+          _errorMessage = 'No user logged in';
         });
         return;
       }
 
-      final userDoc = await _firestore.collection('clientes').doc(userId).get();
-      final entrenadorId = userDoc.data()?['entrenador_ID'] as String?;
+      final userDoc =
+          await _firestore.collection('clientes').doc(userId).get();
+      final trainerId = userDoc.data()?['entrenador_ID'] as String?;
 
-      if (entrenadorId == null || entrenadorId.isEmpty) {
-          setState(() {
-            _isLoading = false;
-            _dietas = []; 
-          });
-          return;
-        }
+      if (trainerId == null || trainerId.isEmpty) {
+        if (!mounted) return;
+        setState(() {
+          _isLoading = false;
+          _diets = [];
+        });
+        return;
+      }
 
-      final dietasSnapshot = await _firestore
+      final snapshot = await _firestore
           .collection('dietas')
           .where('cliente_ID', isEqualTo: userId)
-          .where('entrenador_ID', isEqualTo: entrenadorId) 
+          .where('entrenador_ID', isEqualTo: trainerId)
           .where('activo', isEqualTo: true)
           .get();
 
-      final List<Map<String, dynamic>> dietas = [];
-
-      for (var doc in dietasSnapshot.docs) {
+      final List<Map<String, dynamic>> diets = [];
+      for (var doc in snapshot.docs) {
         final data = doc.data();
         data['id'] = doc.id;
-        dietas.add(data);
+        diets.add(data);
       }
 
       if (!mounted) return;
       setState(() {
-        _dietas = dietas;
+        _diets = diets;
         _isLoading = false;
       });
     } catch (e) {
       if (!mounted) return;
       setState(() {
         _isLoading = false;
-        _errorMessage = 'Error al cargar dietas: $e';
+        _errorMessage = 'Error loading diets: $e';
       });
     }
   }
@@ -115,23 +116,23 @@ class _DietasPageState extends State<DietasPage> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Text(_errorMessage!, 
-              style: TextStyle(color: accent1, fontSize: 16)),
+            Text(_errorMessage!,
+                style: TextStyle(color: accent1, fontSize: 16)),
             const SizedBox(height: 16),
             ElevatedButton(
-              onPressed: _cargarDietas,
+              onPressed: _loadDiets,
               style: ElevatedButton.styleFrom(
                 backgroundColor: accent1,
                 foregroundColor: Colors.black,
               ),
-              child: const Text('Reintentar'),
+              child: const Text('Retry'),
             ),
           ],
         ),
       );
     }
 
-    if (_dietas.isEmpty) {
+    if (_diets.isEmpty) {
       return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -139,12 +140,12 @@ class _DietasPageState extends State<DietasPage> {
             Icon(Icons.restaurant_menu, size: 64, color: primaryLight),
             const SizedBox(height: 16),
             Text(
-              'No tienes dietas asignadas',
+              'No diet plans assigned',
               style: TextStyle(fontSize: 18, color: textColor),
             ),
             const SizedBox(height: 8),
             Text(
-              'Tu entrenador te asignará una pronto',
+              'Your trainer will assign one soon',
               style: TextStyle(color: textColor.withOpacity(0.7)),
             ),
           ],
@@ -153,16 +154,16 @@ class _DietasPageState extends State<DietasPage> {
     }
 
     return RefreshIndicator(
-      onRefresh: _cargarDietas,
+      onRefresh: _loadDiets,
       backgroundColor: accent1,
       color: Colors.black,
       child: ListView.builder(
         padding: const EdgeInsets.all(16),
-        itemCount: _dietas.length,
+        itemCount: _diets.length,
         itemBuilder: (context, index) {
-          final dieta = _dietas[index];
-          final comidas = dieta['comidas'] as Map<String, dynamic>? ?? {};
-          final isExpanded = _dietaExpandidaId == dieta['id'];
+          final diet = _diets[index];
+          final meals = diet['comidas'] as Map<String, dynamic>? ?? {};
+          final isExpanded = _expandedDietId == diet['id'];
 
           return Card(
             color: cardColor,
@@ -175,7 +176,7 @@ class _DietasPageState extends State<DietasPage> {
               borderRadius: BorderRadius.circular(12),
               onTap: () {
                 setState(() {
-                  _dietaExpandidaId = isExpanded ? null : dieta['id'];
+                  _expandedDietId = isExpanded ? null : diet['id'];
                 });
               },
               child: Padding(
@@ -187,7 +188,7 @@ class _DietasPageState extends State<DietasPage> {
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Text(
-                          'Dieta #${index + 1}',
+                          'Diet Plan #${index + 1}',
                           style: TextStyle(
                             fontSize: 18,
                             fontWeight: FontWeight.bold,
@@ -195,7 +196,7 @@ class _DietasPageState extends State<DietasPage> {
                           ),
                         ),
                         Text(
-                          '${dieta['caloriasTotales']} kcal',
+                          '${diet['caloriasTotales']} kcal',
                           style: TextStyle(
                             fontSize: 16,
                             color: textColor.withOpacity(0.7),
@@ -208,7 +209,7 @@ class _DietasPageState extends State<DietasPage> {
                     if (isExpanded) ...[
                       const SizedBox(height: 16),
                       Text(
-                        'Comidas diarias:',
+                        'Daily meals:',
                         style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.w500,
@@ -218,12 +219,12 @@ class _DietasPageState extends State<DietasPage> {
                       const SizedBox(height: 8),
                       Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: comidas.entries.map<Widget>((entry) {
-                          final comidaId = entry.key;
-                          final comidaData = entry.value as Map<String, dynamic>;
-                          final calorias = comidaData['calorias'] ?? 0;
-                          
-                          String comidaNombre = _getComidaNombre(comidaId);
+                        children: meals.entries.map<Widget>((entry) {
+                          final mealId = entry.key;
+                          final mealData =
+                              entry.value as Map<String, dynamic>;
+                          final calories = mealData['calorias'] ?? 0;
+                          final mealName = _getMealName(mealId);
 
                           return Padding(
                             padding: const EdgeInsets.symmetric(vertical: 4),
@@ -231,19 +232,22 @@ class _DietasPageState extends State<DietasPage> {
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: accent1,
                                 foregroundColor: Colors.black,
-                                padding: const EdgeInsets.symmetric(vertical: 12),
+                                padding:
+                                    const EdgeInsets.symmetric(vertical: 12),
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(8),
                                 ),
                               ),
                               onPressed: () {
-                                _mostrarDetallesComida(dieta['id'], comidaId, comidaData);
+                                _showMealDetails(
+                                    diet['id'], mealId, mealData);
                               },
                               child: Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
                                 children: [
-                                  Text(comidaNombre),
-                                  Text('$calorias kcal'),
+                                  Text(mealName),
+                                  Text('$calories kcal'),
                                 ],
                               ),
                             ),
@@ -261,19 +265,19 @@ class _DietasPageState extends State<DietasPage> {
     );
   }
 
-  String _getComidaNombre(String comidaId) {
-    if (comidaId.toLowerCase().contains('desayuno')) return 'Desayuno';
-    if (comidaId.toLowerCase().contains('comida')) return 'Comida';
-    if (comidaId.toLowerCase().contains('cena')) return 'Cena';
-    if (comidaId.toLowerCase().contains('snack') || comidaId.toLowerCase().contains('merienda')) {
-      return 'Snack/Merienda';
-    }
-    return comidaId;
+  String _getMealName(String mealId) {
+    if (mealId.toLowerCase().contains('desayuno')) return 'Breakfast';
+    if (mealId.toLowerCase().contains('comida')) return 'Lunch';
+    if (mealId.toLowerCase().contains('cena')) return 'Dinner';
+    if (mealId.toLowerCase().contains('snack') ||
+        mealId.toLowerCase().contains('merienda')) return 'Snack';
+    return mealId;
   }
 
-  void _mostrarDetallesComida(String dietaId, String comidaId, Map<String, dynamic> comidaData) {
-    final opciones = comidaData['opciones'] as Map<String, dynamic>? ?? {};
-    
+  void _showMealDetails(
+      String dietId, String mealId, Map<String, dynamic> mealData) {
+    final options = mealData['opciones'] as Map<String, dynamic>? ?? {};
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -297,7 +301,7 @@ class _DietasPageState extends State<DietasPage> {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Text(
-                        _getComidaNombre(comidaId),
+                        _getMealName(mealId),
                         style: TextStyle(
                           fontSize: 20,
                           fontWeight: FontWeight.bold,
@@ -305,7 +309,7 @@ class _DietasPageState extends State<DietasPage> {
                         ),
                       ),
                       Text(
-                        '${comidaData['calorias']} kcal',
+                        '${mealData['calorias']} kcal',
                         style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.w500,
@@ -318,7 +322,7 @@ class _DietasPageState extends State<DietasPage> {
                   Divider(color: primaryLight),
                   const SizedBox(height: 10),
                   Text(
-                    'Opciones disponibles (${opciones.length}):',
+                    'Available options (${options.length}):',
                     style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w500,
@@ -329,14 +333,15 @@ class _DietasPageState extends State<DietasPage> {
                   Expanded(
                     child: ListView.separated(
                       controller: scrollController,
-                      itemCount: opciones.length,
-                      separatorBuilder: (context, index) => Divider(color: primaryLight),
+                      itemCount: options.length,
+                      separatorBuilder: (context, index) =>
+                          Divider(color: primaryLight),
                       itemBuilder: (context, index) {
-                        final opcionEntry = opciones.entries.elementAt(index);
-                        final opcionId = opcionEntry.key;
-                        final opcionData = opcionEntry.value as Map<String, dynamic>;
-                        
-                        return _buildOpcionItem(opcionId, opcionData);
+                        final optionEntry = options.entries.elementAt(index);
+                        final optionId = optionEntry.key;
+                        final optionData =
+                            optionEntry.value as Map<String, dynamic>;
+                        return _buildOptionItem(optionId, optionData);
                       },
                     ),
                   ),
@@ -349,7 +354,7 @@ class _DietasPageState extends State<DietasPage> {
     );
   }
 
-  Widget _buildOpcionItem(String opcionId, Map<String, dynamic> opcionData) {
+  Widget _buildOptionItem(String optionId, Map<String, dynamic> optionData) {
     return Card(
       color: background,
       elevation: 2,
@@ -364,7 +369,7 @@ class _DietasPageState extends State<DietasPage> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Opción ${opcionId.replaceAll('opcion', '')}',
+              'Option ${optionId.replaceAll('opcion', '')}',
               style: TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.bold,
@@ -373,27 +378,25 @@ class _DietasPageState extends State<DietasPage> {
             ),
             const SizedBox(height: 8),
             Text(
-              opcionData['descripcion'] ?? 'Sin descripción',
-              style: TextStyle(
-                fontSize: 14,
-                color: textColor,
-              ),
+              optionData['descripcion'] ?? 'No description',
+              style: TextStyle(fontSize: 14, color: textColor),
             ),
             const SizedBox(height: 12),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
-                _buildNutrienteItem('Proteína', opcionData['proteina'] ?? 0, 'g'),
-                _buildNutrienteItem('Hidratos', opcionData['hidratos'] ?? 0, 'g'),
-                _buildNutrienteItem('Grasas', opcionData['grasas'] ?? 0, 'g'),
+                _buildNutrientItem('Protein', optionData['proteina'] ?? 0, 'g'),
+                _buildNutrientItem('Carbs', optionData['hidratos'] ?? 0, 'g'),
+                _buildNutrientItem('Fats', optionData['grasas'] ?? 0, 'g'),
               ],
             ),
-            if (opcionData['otros'] != null && opcionData['otros'].toString().isNotEmpty) ...[
+            if (optionData['otros'] != null &&
+                optionData['otros'].toString().isNotEmpty) ...[
               const SizedBox(height: 10),
               Divider(color: primaryLight),
               const SizedBox(height: 5),
               Text(
-                'Notas adicionales:',
+                'Additional notes:',
                 style: TextStyle(
                   fontWeight: FontWeight.w500,
                   fontSize: 14,
@@ -402,7 +405,7 @@ class _DietasPageState extends State<DietasPage> {
               ),
               const SizedBox(height: 4),
               Text(
-                opcionData['otros'],
+                optionData['otros'],
                 style: TextStyle(
                   fontSize: 13,
                   color: textColor.withOpacity(0.7),
@@ -416,15 +419,12 @@ class _DietasPageState extends State<DietasPage> {
     );
   }
 
-  Widget _buildNutrienteItem(String label, num value, String unit) {
+  Widget _buildNutrientItem(String label, num value, String unit) {
     return Column(
       children: [
         Text(
           label,
-          style: TextStyle(
-            color: textColor.withOpacity(0.7),
-            fontSize: 13,
-          ),
+          style: TextStyle(color: textColor.withOpacity(0.7), fontSize: 13),
         ),
         const SizedBox(height: 4),
         Text(

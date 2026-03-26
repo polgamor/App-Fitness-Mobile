@@ -46,7 +46,7 @@ class _AuthPageState extends State<AuthPage> {
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
             colors: [background, primaryDark],
-            stops: [0.3, 1.0],
+            stops: const [0.3, 1.0],
           ),
         ),
         child: SingleChildScrollView(
@@ -95,7 +95,7 @@ class _AuthPageState extends State<AuthPage> {
                         child: Column(
                           children: [
                             Text(
-                              _showLoginForm ? 'INICIAR SESIÓN' : 'CREAR CUENTA',
+                              _showLoginForm ? 'SIGN IN' : 'CREATE ACCOUNT',
                               style: TextStyle(
                                 fontSize: 22,
                                 fontWeight: FontWeight.bold,
@@ -106,7 +106,9 @@ class _AuthPageState extends State<AuthPage> {
                             const SizedBox(height: 12),
                             Form(
                               key: _formKey,
-                              child: _showLoginForm ? _buildLoginForm() : _buildRegisterForm(),
+                              child: _showLoginForm
+                                  ? _buildLoginForm()
+                                  : _buildRegisterForm(),
                             ),
                             const SizedBox(height: 16),
                             SizedBox(
@@ -121,8 +123,8 @@ class _AuthPageState extends State<AuthPage> {
                                 ),
                                 onPressed: _showLoginForm ? _signIn : _register,
                                 child: Text(
-                                  _showLoginForm ? 'INGRESAR' : 'REGISTRARSE',
-                                  style: TextStyle(
+                                  _showLoginForm ? 'LOG IN' : 'SIGN UP',
+                                  style: const TextStyle(
                                     color: Colors.white,
                                     fontSize: 16,
                                     fontWeight: FontWeight.w600,
@@ -146,9 +148,13 @@ class _AuthPageState extends State<AuthPage> {
                         text: TextSpan(
                           style: TextStyle(color: textColor),
                           children: [
-                            TextSpan(text: _showLoginForm ? '¿No tienes cuenta? ' : '¿Ya tienes cuenta? '),
                             TextSpan(
-                              text: _showLoginForm ? 'Regístrate aquí' : 'Inicia sesión aquí',
+                              text: _showLoginForm
+                                  ? "Don't have an account? "
+                                  : 'Already have an account? ',
+                            ),
+                            TextSpan(
+                              text: _showLoginForm ? 'Sign up here' : 'Sign in here',
                               style: TextStyle(
                                 color: accent1,
                                 fontWeight: FontWeight.bold,
@@ -175,15 +181,20 @@ class _AuthPageState extends State<AuthPage> {
         showDialog(
           context: context,
           barrierDismissible: false,
-          builder: (context) => Center(child: CircularProgressIndicator(color: accent1)),
+          builder: (context) =>
+              Center(child: CircularProgressIndicator(color: accent1)),
         );
 
-        final userCredential = await FirebaseAuth.instance.signInWithEmailAndPassword(
+        final userCredential =
+            await FirebaseAuth.instance.signInWithEmailAndPassword(
           email: _emailController.text.trim(),
           password: _passwordController.text,
         );
 
-        final userDoc = await FirebaseFirestore.instance.collection('clientes').doc(userCredential.user?.uid).get();
+        final userDoc = await FirebaseFirestore.instance
+            .collection('clientes')
+            .doc(userCredential.user?.uid)
+            .get();
 
         if (!mounted) return;
         Navigator.of(context).pop();
@@ -194,8 +205,11 @@ class _AuthPageState extends State<AuthPage> {
           showDialog(
             context: context,
             builder: (_) => AlertDialog(
-              title: Text('Acceso denegado', style: TextStyle(color: textColor)),
-              content: Text('No tienes permisos para acceder como cliente.', style: TextStyle(color: textColor)),
+              title: Text('Access denied', style: TextStyle(color: textColor)),
+              content: Text(
+                'You do not have permission to access as a client.',
+                style: TextStyle(color: textColor),
+              ),
               backgroundColor: cardColor,
             ),
           );
@@ -204,27 +218,26 @@ class _AuthPageState extends State<AuthPage> {
 
         if (!mounted) return;
         Navigator.pushReplacementNamed(context, '/home');
-
       } on FirebaseAuthException catch (e) {
         if (!mounted) return;
         Navigator.of(context).pop();
 
-        String errorMessage;
+        final String errorMessage;
         switch (e.code) {
           case 'user-not-found':
-            errorMessage = 'No existe una cuenta con este email.';
+            errorMessage = 'No account found with this email.';
             break;
           case 'wrong-password':
-            errorMessage = 'Contraseña incorrecta.';
+            errorMessage = 'Incorrect password.';
             break;
           case 'user-disabled':
-            errorMessage = 'Esta cuenta ha sido deshabilitada.';
+            errorMessage = 'This account has been disabled.';
             break;
           case 'invalid-email':
-            errorMessage = 'El formato del email no es válido.';
+            errorMessage = 'Invalid email format.';
             break;
           default:
-            errorMessage = 'Error al iniciar sesión: ${e.message}';
+            errorMessage = 'Sign in error: ${e.message}';
         }
 
         showDialog(
@@ -243,7 +256,10 @@ class _AuthPageState extends State<AuthPage> {
           context: context,
           builder: (_) => AlertDialog(
             title: Text('Error', style: TextStyle(color: textColor)),
-            content: Text('Ocurrió un error inesperado: $e', style: TextStyle(color: textColor)),
+            content: Text(
+              'An unexpected error occurred: $e',
+              style: TextStyle(color: textColor),
+            ),
             backgroundColor: cardColor,
           ),
         );
@@ -259,7 +275,10 @@ class _AuthPageState extends State<AuthPage> {
           context: context,
           builder: (_) => AlertDialog(
             title: Text('Error', style: TextStyle(color: textColor)),
-            content: Text('Las contraseñas no coinciden.', style: TextStyle(color: textColor)),
+            content: Text(
+              'Passwords do not match.',
+              style: TextStyle(color: textColor),
+            ),
             backgroundColor: cardColor,
           ),
         );
@@ -273,10 +292,12 @@ class _AuthPageState extends State<AuthPage> {
         showDialog(
           context: context,
           barrierDismissible: false,
-          builder: (context) => Center(child: CircularProgressIndicator(color: accent1)),
+          builder: (context) =>
+              Center(child: CircularProgressIndicator(color: accent1)),
         );
 
-        final userCredential = await FirebaseAuth.instance.createUserWithEmailAndPassword(
+        final userCredential =
+            await FirebaseAuth.instance.createUserWithEmailAndPassword(
           email: email,
           password: password,
         );
@@ -305,30 +326,29 @@ class _AuthPageState extends State<AuthPage> {
         if (!mounted) return;
         Navigator.of(context).pop();
         Navigator.pushReplacementNamed(context, '/home');
-
       } on FirebaseAuthException catch (e) {
         if (!mounted) return;
         Navigator.of(context).pop();
 
-        String errorMessage;
+        final String errorMessage;
         switch (e.code) {
           case 'email-already-in-use':
-            errorMessage = 'El correo electrónico ya está en uso.';
+            errorMessage = 'This email is already in use.';
             break;
           case 'invalid-email':
-            errorMessage = 'El correo electrónico no es válido.';
+            errorMessage = 'Invalid email address.';
             break;
           case 'weak-password':
-            errorMessage = 'La contraseña es demasiado débil.';
+            errorMessage = 'Password is too weak.';
             break;
           default:
-            errorMessage = 'Error al crear la cuenta: ${e.message}';
+            errorMessage = 'Account creation error: ${e.message}';
         }
 
         showDialog(
           context: context,
           builder: (_) => AlertDialog(
-            title: Text('Error en el registro', style: TextStyle(color: textColor)),
+            title: Text('Registration error', style: TextStyle(color: textColor)),
             content: Text(errorMessage, style: TextStyle(color: textColor)),
             backgroundColor: cardColor,
           ),
@@ -341,7 +361,10 @@ class _AuthPageState extends State<AuthPage> {
           context: context,
           builder: (_) => AlertDialog(
             title: Text('Error', style: TextStyle(color: textColor)),
-            content: Text('Ocurrió un error inesperado: $e', style: TextStyle(color: textColor)),
+            content: Text(
+              'An unexpected error occurred: $e',
+              style: TextStyle(color: textColor),
+            ),
             backgroundColor: cardColor,
           ),
         );
@@ -350,28 +373,47 @@ class _AuthPageState extends State<AuthPage> {
   }
 
   Widget _buildLoginForm() => Column(
-    children: [
-      _buildTextField(_emailController, 'Correo electrónico', Icons.email, TextInputType.emailAddress),
-      const SizedBox(height: 16),
-      _buildTextField(_passwordController, 'Contraseña', Icons.lock, TextInputType.text, obscure: true),
-    ],
-  );
+        children: [
+          _buildTextField(
+              _emailController, 'Email', Icons.email, TextInputType.emailAddress),
+          const SizedBox(height: 16),
+          _buildTextField(
+              _passwordController, 'Password', Icons.lock, TextInputType.text,
+              obscure: true),
+        ],
+      );
 
   Widget _buildRegisterForm() => Column(
-    children: [
-      _buildTextField(_nameController, 'Nombre', Icons.person, TextInputType.text),
-      const SizedBox(height: 16),
-      _buildTextField(_phoneController, 'Teléfono', Icons.phone, TextInputType.phone),
-      const SizedBox(height: 16),
-      _buildTextField(_emailController, 'Correo electrónico', Icons.email, TextInputType.emailAddress),
-      const SizedBox(height: 16),
-      _buildTextField(_passwordController, 'Contraseña', Icons.lock, TextInputType.text, obscure: true),
-      const SizedBox(height: 16),
-      _buildTextField(_confirmPasswordController, 'Confirmar contraseña', Icons.lock_outline, TextInputType.text, obscure: true),
-    ],
-  );
+        children: [
+          _buildTextField(
+              _nameController, 'Name', Icons.person, TextInputType.text),
+          const SizedBox(height: 16),
+          _buildTextField(
+              _phoneController, 'Phone', Icons.phone, TextInputType.phone),
+          const SizedBox(height: 16),
+          _buildTextField(
+              _emailController, 'Email', Icons.email, TextInputType.emailAddress),
+          const SizedBox(height: 16),
+          _buildTextField(
+              _passwordController, 'Password', Icons.lock, TextInputType.text,
+              obscure: true),
+          const SizedBox(height: 16),
+          _buildTextField(
+              _confirmPasswordController,
+              'Confirm password',
+              Icons.lock_outline,
+              TextInputType.text,
+              obscure: true),
+        ],
+      );
 
-  Widget _buildTextField(TextEditingController controller, String label, IconData icon, TextInputType type, {bool obscure = false}) {
+  Widget _buildTextField(
+    TextEditingController controller,
+    String label,
+    IconData icon,
+    TextInputType type, {
+    bool obscure = false,
+  }) {
     return TextFormField(
       controller: controller,
       keyboardType: type,
@@ -394,15 +436,15 @@ class _AuthPageState extends State<AuthPage> {
       ),
       validator: (value) {
         if (value == null || value.isEmpty) {
-          return 'Este campo es obligatorio';
+          return 'This field is required';
         }
-        if (label == 'Correo electrónico' &&
+        if (label == 'Email' &&
             !RegExp(r'^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$')
                 .hasMatch(value)) {
-          return 'Ingresa un email válido';
+          return 'Enter a valid email';
         }
-        if (label == 'Contraseña' && value.length < 8) {
-          return 'La contraseña debe tener al menos 8 caracteres';
+        if (label == 'Password' && value.length < 8) {
+          return 'Password must be at least 8 characters';
         }
         return null;
       },

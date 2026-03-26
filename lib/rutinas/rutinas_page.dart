@@ -15,9 +15,9 @@ class _RutinasPageState extends State<RutinasPage> {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   bool _isLoading = true;
   String? _errorMessage;
-  List<Map<String, dynamic>> _rutinas = [];
-  String? _rutinaExpandidaId;
-  final Map<String, TextEditingController> _observacionesControllers = {};
+  List<Map<String, dynamic>> _workouts = [];
+  String? _expandedWorkoutId;
+  final Map<String, TextEditingController> _notesControllers = {};
   Timer? _debounceTimer;
 
   final Color primaryDark = const Color(0xFF344E41);
@@ -32,17 +32,17 @@ class _RutinasPageState extends State<RutinasPage> {
   @override
   void initState() {
     super.initState();
-    _cargarRutinas();
+    _loadWorkouts();
   }
 
   @override
   void dispose() {
     _debounceTimer?.cancel();
-    _observacionesControllers.forEach((key, controller) => controller.dispose());
+    _notesControllers.forEach((key, controller) => controller.dispose());
     super.dispose();
   }
 
-  Future<void> _cargarRutinas() async {
+  Future<void> _loadWorkouts() async {
     try {
       setState(() {
         _isLoading = true;
@@ -53,89 +53,95 @@ class _RutinasPageState extends State<RutinasPage> {
       if (userId == null) {
         setState(() {
           _isLoading = false;
-          _errorMessage = 'No hay usuario conectado';
+          _errorMessage = 'No user logged in';
         });
         return;
       }
 
-      final userDoc = await _firestore.collection('clientes').doc(userId).get();
-      final entrenadorId = userDoc.data()?['entrenador_ID'] as String?;
+      final userDoc =
+          await _firestore.collection('clientes').doc(userId).get();
+      final trainerId = userDoc.data()?['entrenador_ID'] as String?;
 
-      if (entrenadorId == null || entrenadorId.isEmpty) {
+      if (trainerId == null || trainerId.isEmpty) {
+        if (!mounted) return;
         setState(() {
           _isLoading = false;
-          _rutinas = []; 
+          _workouts = [];
         });
         return;
       }
 
-      final rutinasSnapshot = await _firestore
+      final snapshot = await _firestore
           .collection('rutinas')
           .where('cliente_ID', isEqualTo: userId)
-          .where('entrenador_ID', isEqualTo: entrenadorId) 
+          .where('entrenador_ID', isEqualTo: trainerId)
           .where('activo', isEqualTo: true)
           .get();
 
-      final List<Map<String, dynamic>> rutinas = [];
-
-      for (var doc in rutinasSnapshot.docs) {
+      final List<Map<String, dynamic>> workouts = [];
+      for (var doc in snapshot.docs) {
         final data = doc.data();
         data['id'] = doc.id;
-        rutinas.add(data);
+        workouts.add(data);
       }
 
       if (!mounted) return;
       setState(() {
-        _rutinas = rutinas;
+        _workouts = workouts;
         _isLoading = false;
       });
     } catch (e) {
       if (!mounted) return;
       setState(() {
         _isLoading = false;
-        _errorMessage = 'Error al cargar rutinas: $e';
+        _errorMessage = 'Error loading workouts: $e';
       });
     }
   }
 
-  Future<void> _actualizarEjercicio(
-    String rutinaId,
-    String diaId,
-    String ejercicioId,
-    bool completado,
-    String observaciones,
+  Future<void> _updateExercise(
+    String workoutId,
+    String dayId,
+    String exerciseId,
+    bool completed,
+    String notes,
   ) async {
     try {
-      await _firestore.collection('rutinas').doc(rutinaId).update({
-        'dias.$diaId.ej.$ejercicioId.completado': completado,
-        'dias.$diaId.ej.$ejercicioId.observaciones': observaciones,
+      await _firestore.collection('rutinas').doc(workoutId).update({
+        'dias.$dayId.ej.$exerciseId.completado': completed,
+        'dias.$dayId.ej.$exerciseId.observaciones': notes,
       });
 
       setState(() {
-        final rutinaIndex = _rutinas.indexWhere((r) => r['id'] == rutinaId);
-        if (rutinaIndex != -1) {
-          _rutinas[rutinaIndex]['dias'][diaId]['ej'][ejercicioId]['completado'] = completado;
-          _rutinas[rutinaIndex]['dias'][diaId]['ej'][ejercicioId]['observaciones'] = observaciones;
+        final workoutIndex =
+            _workouts.indexWhere((w) => w['id'] == workoutId);
+        if (workoutIndex != -1) {
+          _workouts[workoutIndex]['dias'][dayId]['ej'][exerciseId]
+              ['completado'] = completed;
+          _workouts[workoutIndex]['dias'][dayId]['ej'][exerciseId]
+              ['observaciones'] = notes;
         }
       });
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Error al actualizar ejercicio: $e'),
+          content: Text('Error updating exercise: $e'),
           backgroundColor: accent1,
         ),
       );
     }
   }
 
-  final List<String> _ordenDias = [
+  // Day IDs in Firestore are stored in Spanish (set by the trainer app).
+  // These keywords are used to match and sort them; display names are in English.
+  final List<String> _dayOrder = [
     'lunes', 'martes', 'miercoles',
     'jueves', 'viernes', 'sabado', 'domingo'
   ];
 
-  String _normalizarDia(String dia) {
-    return dia.toLowerCase()
+  String _normalizeDay(String day) {
+    return day.toLowerCase()
         .replaceAll('é', 'e')
         .replaceAll('á', 'a')
         .replaceAll('ó', 'o')
@@ -143,14 +149,12 @@ class _RutinasPageState extends State<RutinasPage> {
         .replaceAll('ú', 'u');
   }
 
-  int _obtenerOrdenDia(String diaId) {
-    final normalizedDia = _normalizarDia(diaId);
-    for (int i = 0; i < _ordenDias.length; i++) {
-      if (normalizedDia.contains(_ordenDias[i])) {
-        return i;
-      }
+  int _getDayOrder(String dayId) {
+    final normalized = _normalizeDay(dayId);
+    for (int i = 0; i < _dayOrder.length; i++) {
+      if (normalized.contains(_dayOrder[i])) return i;
     }
-    return _ordenDias.length;
+    return _dayOrder.length;
   }
 
   @override
@@ -180,23 +184,23 @@ class _RutinasPageState extends State<RutinasPage> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Text(_errorMessage!, 
-              style: TextStyle(color: accent1, fontSize: 16)),
+            Text(_errorMessage!,
+                style: TextStyle(color: accent1, fontSize: 16)),
             const SizedBox(height: 16),
             ElevatedButton(
-              onPressed: _cargarRutinas,
+              onPressed: _loadWorkouts,
               style: ElevatedButton.styleFrom(
                 backgroundColor: accent1,
                 foregroundColor: Colors.black,
               ),
-              child: const Text('Reintentar'),
+              child: const Text('Retry'),
             ),
           ],
         ),
       );
     }
 
-    if (_rutinas.isEmpty) {
+    if (_workouts.isEmpty) {
       return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -204,12 +208,12 @@ class _RutinasPageState extends State<RutinasPage> {
             Icon(Icons.fitness_center, size: 64, color: primaryLight),
             const SizedBox(height: 16),
             Text(
-              'No tienes rutinas asignadas',
+              'No workouts assigned',
               style: TextStyle(fontSize: 18, color: textColor),
             ),
             const SizedBox(height: 8),
             Text(
-              'Tu entrenador te asignará una pronto',
+              'Your trainer will assign one soon',
               style: TextStyle(color: textColor.withOpacity(0.7)),
             ),
           ],
@@ -218,19 +222,20 @@ class _RutinasPageState extends State<RutinasPage> {
     }
 
     return RefreshIndicator(
-      onRefresh: _cargarRutinas,
+      onRefresh: _loadWorkouts,
       backgroundColor: accent1,
       color: Colors.black,
       child: ListView.builder(
         padding: const EdgeInsets.all(16),
-        itemCount: _rutinas.length,
+        itemCount: _workouts.length,
         itemBuilder: (context, index) {
-          final rutina = _rutinas[index];
-          final dias = rutina['dias'] as Map<String, dynamic>? ?? {};
-          final isExpanded = _rutinaExpandidaId == rutina['id'];
+          final workout = _workouts[index];
+          final days = workout['dias'] as Map<String, dynamic>? ?? {};
+          final isExpanded = _expandedWorkoutId == workout['id'];
 
-          final diasOrdenados = dias.entries.toList()
-            ..sort((a, b) => _obtenerOrdenDia(a.key).compareTo(_obtenerOrdenDia(b.key)));
+          final sortedDays = days.entries.toList()
+            ..sort((a, b) =>
+                _getDayOrder(a.key).compareTo(_getDayOrder(b.key)));
 
           return Card(
             color: cardColor,
@@ -243,7 +248,8 @@ class _RutinasPageState extends State<RutinasPage> {
               borderRadius: BorderRadius.circular(12),
               onTap: () {
                 setState(() {
-                  _rutinaExpandidaId = isExpanded ? null : rutina['id'];
+                  _expandedWorkoutId =
+                      isExpanded ? null : workout['id'];
                 });
               },
               child: Padding(
@@ -255,7 +261,7 @@ class _RutinasPageState extends State<RutinasPage> {
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Text(
-                          'Rutina #${index + 1}',
+                          'Workout #${index + 1}',
                           style: TextStyle(
                             fontSize: 18,
                             fontWeight: FontWeight.bold,
@@ -263,7 +269,7 @@ class _RutinasPageState extends State<RutinasPage> {
                           ),
                         ),
                         Text(
-                          '${dias.length} días',
+                          '${days.length} days',
                           style: TextStyle(
                             fontSize: 16,
                             color: textColor.withOpacity(0.7),
@@ -273,9 +279,9 @@ class _RutinasPageState extends State<RutinasPage> {
                       ],
                     ),
                     const SizedBox(height: 10),
-                    if (rutina['fechaCreacion'] != null)
+                    if (workout['fechaCreacion'] != null)
                       Text(
-                        'Creada: ${_formatDate(rutina['fechaCreacion'].toDate())}',
+                        'Created: ${_formatDate(workout['fechaCreacion'].toDate())}',
                         style: TextStyle(
                           fontSize: 14,
                           color: textColor.withOpacity(0.6),
@@ -284,7 +290,7 @@ class _RutinasPageState extends State<RutinasPage> {
                     if (isExpanded) ...[
                       const SizedBox(height: 16),
                       Text(
-                        'Días de entrenamiento:',
+                        'Training days:',
                         style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.w500,
@@ -294,32 +300,38 @@ class _RutinasPageState extends State<RutinasPage> {
                       const SizedBox(height: 8),
                       Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: diasOrdenados.map<Widget>((entry) {
-                          final diaId = entry.key;
-                          final diaData = entry.value as Map<String, dynamic>;
-                          final ejercicios = diaData['ej'] as Map<String, dynamic>? ?? {};
-                          
-                          String diaNombre = _getDiaNombre(diaId);
+                        children: sortedDays.map<Widget>((entry) {
+                          final dayId = entry.key;
+                          final dayData =
+                              entry.value as Map<String, dynamic>;
+                          final exercises =
+                              dayData['ej'] as Map<String, dynamic>? ?? {};
+                          final dayName = _getDayName(dayId);
 
                           return Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 4),
+                            padding:
+                                const EdgeInsets.symmetric(vertical: 4),
                             child: ElevatedButton(
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: primaryLight,
                                 foregroundColor: Colors.black,
-                                padding: const EdgeInsets.symmetric(vertical: 12),
+                                padding: const EdgeInsets.symmetric(
+                                    vertical: 12),
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(8),
                                 ),
                               ),
                               onPressed: () {
-                                _mostrarDetallesDia(rutina['id'], diaId, diaData);
+                                _showDayDetails(
+                                    workout['id'], dayId, dayData);
                               },
                               child: Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
                                 children: [
-                                  Text(diaNombre),
-                                  Text('${ejercicios.length} ejercicios'),
+                                  Text(dayName),
+                                  Text(
+                                      '${exercises.length} exercises'),
                                 ],
                               ),
                             ),
@@ -337,21 +349,24 @@ class _RutinasPageState extends State<RutinasPage> {
     );
   }
 
-  String _getDiaNombre(String diaId) {
-    if (diaId.toLowerCase().contains('lunes')) return 'Lunes';
-    if (diaId.toLowerCase().contains('martes')) return 'Martes';
-    if (diaId.toLowerCase().contains('miercoles') || diaId.toLowerCase().contains('miércoles')) return 'Miércoles';
-    if (diaId.toLowerCase().contains('jueves')) return 'Jueves';
-    if (diaId.toLowerCase().contains('viernes')) return 'Viernes';
-    if (diaId.toLowerCase().contains('sabado') || diaId.toLowerCase().contains('sábado')) return 'Sábado';
-    if (diaId.toLowerCase().contains('domingo')) return 'Domingo';
-    return diaId;
+  String _getDayName(String dayId) {
+    if (dayId.toLowerCase().contains('lunes')) return 'Monday';
+    if (dayId.toLowerCase().contains('martes')) return 'Tuesday';
+    if (dayId.toLowerCase().contains('miercoles') ||
+        dayId.toLowerCase().contains('miércoles')) return 'Wednesday';
+    if (dayId.toLowerCase().contains('jueves')) return 'Thursday';
+    if (dayId.toLowerCase().contains('viernes')) return 'Friday';
+    if (dayId.toLowerCase().contains('sabado') ||
+        dayId.toLowerCase().contains('sábado')) return 'Saturday';
+    if (dayId.toLowerCase().contains('domingo')) return 'Sunday';
+    return dayId;
   }
 
-  void _mostrarDetallesDia(String rutinaId, String diaId, Map<String, dynamic> diaData) {
-    final ejercicios = diaData['ej'] as Map<String, dynamic>? ?? {};
-    final horaEntrenamiento = diaData['horaEntrenamiento'] as Timestamp?;
-    
+  void _showDayDetails(
+      String workoutId, String dayId, Map<String, dynamic> dayData) {
+    final exercises = dayData['ej'] as Map<String, dynamic>? ?? {};
+    final trainingTime = dayData['horaEntrenamiento'] as Timestamp?;
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -375,16 +390,16 @@ class _RutinasPageState extends State<RutinasPage> {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Text(
-                        _getDiaNombre(diaId),
+                        _getDayName(dayId),
                         style: TextStyle(
                           fontSize: 20,
                           fontWeight: FontWeight.bold,
                           color: textColor,
                         ),
                       ),
-                      if (horaEntrenamiento != null)
+                      if (trainingTime != null)
                         Text(
-                          'Hora: ${_formatTime(horaEntrenamiento.toDate())}',
+                          'Time: ${_formatTime(trainingTime.toDate())}',
                           style: TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.w500,
@@ -397,7 +412,7 @@ class _RutinasPageState extends State<RutinasPage> {
                   Divider(color: primaryLight),
                   const SizedBox(height: 10),
                   Text(
-                    'Ejercicios (${ejercicios.length}):',
+                    'Exercises (${exercises.length}):',
                     style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w500,
@@ -408,26 +423,31 @@ class _RutinasPageState extends State<RutinasPage> {
                   Expanded(
                     child: ListView.separated(
                       controller: scrollController,
-                      itemCount: ejercicios.length,
-                      separatorBuilder: (context, index) => Divider(color: primaryLight),
+                      itemCount: exercises.length,
+                      separatorBuilder: (context, index) =>
+                          Divider(color: primaryLight),
                       itemBuilder: (context, index) {
-                        final ejercicioEntry = ejercicios.entries.elementAt(index);
-                        final ejercicioId = ejercicioEntry.key;
-                        final ejercicioData = ejercicioEntry.value as Map<String, dynamic>;
-                        
-                        final controllerKey = '$rutinaId-$diaId-$ejercicioId';
-                        if (!_observacionesControllers.containsKey(controllerKey)) {
-                          _observacionesControllers[controllerKey] = TextEditingController(
-                            text: ejercicioData['observaciones'] ?? '',
+                        final exerciseEntry =
+                            exercises.entries.elementAt(index);
+                        final exerciseId = exerciseEntry.key;
+                        final exerciseData =
+                            exerciseEntry.value as Map<String, dynamic>;
+
+                        final controllerKey =
+                            '$workoutId-$dayId-$exerciseId';
+                        if (!_notesControllers.containsKey(controllerKey)) {
+                          _notesControllers[controllerKey] =
+                              TextEditingController(
+                            text: exerciseData['observaciones'] ?? '',
                           );
                         }
 
-                        return _buildEjercicioItem(
-                          rutinaId,
-                          diaId,
-                          ejercicioId,
-                          ejercicioData,
-                          _observacionesControllers[controllerKey]!,
+                        return _buildExerciseItem(
+                          workoutId,
+                          dayId,
+                          exerciseId,
+                          exerciseData,
+                          _notesControllers[controllerKey]!,
                         );
                       },
                     ),
@@ -441,12 +461,12 @@ class _RutinasPageState extends State<RutinasPage> {
     );
   }
 
-  Widget _buildEjercicioItem(
-    String rutinaId,
-    String diaId,
-    String ejercicioId,
-    Map<String, dynamic> ejercicioData,
-    TextEditingController observacionesController,
+  Widget _buildExerciseItem(
+    String workoutId,
+    String dayId,
+    String exerciseId,
+    Map<String, dynamic> exerciseData,
+    TextEditingController notesController,
   ) {
     return Card(
       color: background,
@@ -466,7 +486,7 @@ class _RutinasPageState extends State<RutinasPage> {
               children: [
                 Expanded(
                   child: Text(
-                    ejercicioData['nombre'] ?? 'Sin nombre',
+                    exerciseData['nombre'] ?? 'No name',
                     style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.bold,
@@ -475,14 +495,14 @@ class _RutinasPageState extends State<RutinasPage> {
                   ),
                 ),
                 Switch(
-                  value: ejercicioData['completado'] ?? false,
+                  value: exerciseData['completado'] ?? false,
                   onChanged: (value) {
-                    _actualizarEjercicio(
-                      rutinaId,
-                      diaId,
-                      ejercicioId,
+                    _updateExercise(
+                      workoutId,
+                      dayId,
+                      exerciseId,
                       value,
-                      observacionesController.text,
+                      notesController.text,
                     );
                   },
                   activeThumbColor: accent1,
@@ -493,21 +513,23 @@ class _RutinasPageState extends State<RutinasPage> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
-                _buildDatoEjercicio('Peso', '${ejercicioData['pesoE']} kg'),
-                _buildDatoEjercicio('Reps', ejercicioData['repsE'].toString()),
-                _buildDatoEjercicio('RIR', ejercicioData['RIRE'].toString()),
+                _buildExerciseData('Weight', '${exerciseData['pesoE']} kg'),
+                _buildExerciseData(
+                    'Reps', exerciseData['repsE'].toString()),
+                _buildExerciseData('RIR', exerciseData['RIRE'].toString()),
               ],
             ),
-            if (ejercicioData['series'] != null && ejercicioData['series'].toString().isNotEmpty) ...[
+            if (exerciseData['series'] != null &&
+                exerciseData['series'].toString().isNotEmpty) ...[
               const SizedBox(height: 10),
-              _buildDatoEjercicio('Series', ejercicioData['series']),
+              _buildExerciseData('Sets', exerciseData['series']),
             ],
             const SizedBox(height: 10),
             TextField(
-              controller: observacionesController,
+              controller: notesController,
               style: TextStyle(color: textColor),
               decoration: InputDecoration(
-                labelText: 'Observaciones',
+                labelText: 'Notes',
                 labelStyle: TextStyle(color: textColor.withOpacity(0.7)),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(8),
@@ -519,17 +541,18 @@ class _RutinasPageState extends State<RutinasPage> {
                 ),
                 filled: true,
                 fillColor: background,
-                contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                contentPadding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
               ),
               maxLines: 2,
               onChanged: (value) {
                 _debounceTimer?.cancel();
                 _debounceTimer = Timer(const Duration(milliseconds: 700), () {
-                  _actualizarEjercicio(
-                    rutinaId,
-                    diaId,
-                    ejercicioId,
-                    ejercicioData['completado'] ?? false,
+                  _updateExercise(
+                    workoutId,
+                    dayId,
+                    exerciseId,
+                    exerciseData['completado'] ?? false,
                     value,
                   );
                 });
@@ -541,15 +564,12 @@ class _RutinasPageState extends State<RutinasPage> {
     );
   }
 
-  Widget _buildDatoEjercicio(String label, String value) {
+  Widget _buildExerciseData(String label, String value) {
     return Column(
       children: [
         Text(
           label,
-          style: TextStyle(
-            color: textColor.withOpacity(0.7),
-            fontSize: 13,
-          ),
+          style: TextStyle(color: textColor.withOpacity(0.7), fontSize: 13),
         ),
         const SizedBox(height: 4),
         Text(
