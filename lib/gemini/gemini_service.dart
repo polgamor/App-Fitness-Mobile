@@ -94,7 +94,7 @@ class GeminiService {
   bool _isResponseValid(String response) {
     final lowerResponse = response.toLowerCase();
     
-    if (lowerResponse.contains("Mi especialidad es el fitness y la nutrición deportivas ¿En que puedo ayudarte hoy?")) {
+    if (lowerResponse.contains("mi especialidad es el fitness y la nutrici")) {
       return true;
     }
     

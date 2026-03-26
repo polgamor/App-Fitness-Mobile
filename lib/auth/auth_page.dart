@@ -290,7 +290,7 @@ class _AuthPageState extends State<AuthPage> {
           'apellido2': '',
           'email': email,
           'entrenador_ID': '',
-          'fecha_nacimiento': '',
+          'fecha_nacimiento': null,
           'fecha_registro': FieldValue.serverTimestamp(),
           'hasCompletedOnboarding': false,
           'foto_perfil': '',

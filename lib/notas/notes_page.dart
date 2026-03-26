@@ -80,7 +80,7 @@ class _NotesPageState extends State<NotesPage> {
 
       final List<Map<String, dynamic>> notas = [];
 
-      for (var doc in notasSnapshot.docs) {
+      for (var doc in docs) {
         final data = doc.data();
         data['id'] = doc.id;
         notas.add(data);

@@ -125,14 +125,23 @@ class _RutinasPageState extends State<RutinasPage> {
   }
 
   final List<String> _ordenDias = [
-    'lunes', 'martes', 'miercoles', 'miércoles', 
-    'jueves', 'viernes', 'sabado', 'sábado', 'domingo'
+    'lunes', 'martes', 'miercoles',
+    'jueves', 'viernes', 'sabado', 'domingo'
   ];
 
+  String _normalizarDia(String dia) {
+    return dia.toLowerCase()
+        .replaceAll('é', 'e')
+        .replaceAll('á', 'a')
+        .replaceAll('ó', 'o')
+        .replaceAll('í', 'i')
+        .replaceAll('ú', 'u');
+  }
+
   int _obtenerOrdenDia(String diaId) {
-    final lowerDia = diaId.toLowerCase();
+    final normalizedDia = _normalizarDia(diaId);
     for (int i = 0; i < _ordenDias.length; i++) {
-      if (lowerDia.contains(_ordenDias[i])) {
+      if (normalizedDia.contains(_ordenDias[i])) {
         return i;
       }
     }

@@ -158,19 +158,12 @@ class _ProfilePageState extends State<ProfilePage> {
 
       String? imageUrl = _currentProfileImageUrl; 
       
-      if ((_profileImageBytes != null && kIsWeb) || (_profileImage != null && !kIsWeb)) {
+      if (_profileImageBytes != null) {
         final storageRef = FirebaseStorage.instance
             .ref()
             .child('profile_images/${user.uid}.jpg');
-        
-        if (kIsWeb) {
-          // Subir los bytes directamente en web
-          await storageRef.putData(_profileImageBytes!);
-        } else {
-          // Subir el archivo en móvil
-          await storageRef.putFile(_profileImage!);
-        }
-        
+
+        await storageRef.putData(_profileImageBytes!);
         imageUrl = await storageRef.getDownloadURL();
       }
 
@@ -276,9 +269,6 @@ class _ProfilePageState extends State<ProfilePage> {
       if (imageBytes != null && mounted) {
         setState(() {
           _profileImageBytes = imageBytes;
-          if (!kIsWeb && _profileImageBytes != null) {
-            _profileImage = File.fromRawPath(_profileImageBytes!);
-          }
         });
       }
     } catch (e) {
